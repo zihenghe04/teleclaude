@@ -1,9 +1,9 @@
 [project]
-name = "claudecode-telegram"
+name = "teleclaude"
 version = "0.1.0"
-description = "Telegram bridge for Claude Code"
+description = "Control Claude Code from Telegram"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-claudecode-telegram = "bridge:main"
+teleclaude = "bridge:main"

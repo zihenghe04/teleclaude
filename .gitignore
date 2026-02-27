@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 *.egg-info/
 .env
+.DS_Store
+.bridge.pid
+.bridge.log
+.tunnel.pid
+.tunnel.log
+backup-*/
