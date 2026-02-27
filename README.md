@@ -2,32 +2,86 @@
 
 **English** | [中文](README_CN.md)
 
-Control [Claude Code](https://docs.anthropic.com/en/docs/claude-code) from Telegram — live streaming, interactive prompts, and autonomous execution.
+Control [Claude Code](https://docs.anthropic.com/en/docs/claude-code) remotely from Telegram — live streaming, interactive prompts, and autonomous execution.
 
-- **Transcript-based live streaming** — real-time tool call and text updates via JSONL transcript reading
-- **Single-sender architecture** — hook writes file, watcher sends to Telegram, no race conditions
-- **Interactive prompt forwarding** — selection menus and yes/no prompts with inline keyboard buttons
-- **Shell fallback** — when Claude is not running, commands execute in shell and return clean output
+- **Live streaming** — real-time tool calls and text via transcript JSONL reading
+- **Interactive prompts** — selection menus and yes/no forwarded as inline keyboard buttons
+- **Autonomous execution** — supports `--dangerously-skip-permissions` for fire-and-forget workflows
+- **Shell fallback** — when Claude is not running, commands execute in shell with output returned
 - **Claude internal commands** — `/model`, `/cost` etc. forwarded with TUI output captured
 
-## Comparison with Official Remote Control
-
-Anthropic released Claude Code Remote Control (Feb 2026), which lets you control a local Claude Code session from phone/tablet via their app. Here's how this project compares:
+## vs. Official Remote Control
 
 | Feature | Official Remote Control | teleclaude |
 | --- | --- | --- |
-| **Subscription** | Max plan only (Pro coming), no Team/Enterprise/API | Any plan or API key |
-| **Concurrent sessions** | One session per machine | Multiple via tmux |
-| **Live streaming** | Final result only | Real-time tool calls and text, updated every 3s |
-| **Autonomous execution** | No `--dangerously-skip-permissions`, manual approval needed | Full autonomous execution |
-| **Interactive prompts** | Via official UI | Telegram inline keyboard buttons |
-| **Session persistence** | ~10 min network outage = timeout | tmux session persists indefinitely |
-| **Terminal requirement** | Local terminal must stay active | tmux runs in background |
-| **Client** | Claude app or claude.ai/code | Telegram (all platforms) |
-| **Network** | Direct connection to Anthropic | Proxy support, works behind firewalls |
-| **Shell fallback** | No | Auto-switches to shell when Claude not running |
-| **Internal commands** | Via UI | `/model`, `/cost` etc. via Telegram |
-| **Cost** | Max plan ($100+/mo) | Free + any API plan |
+| **Subscription** | Max plan only ($100+/mo) | Any plan or API key |
+| **Concurrent sessions** | One per machine | Multiple via tmux |
+| **Live streaming** | Final result only | Real-time tool calls + text, every 3s |
+| **Autonomous mode** | Must approve each action | Full `--dangerously-skip-permissions` |
+| **Session persistence** | ~10 min network outage = timeout | tmux persists indefinitely |
+| **Terminal** | Must stay active | tmux background, close terminal anytime |
+| **Client** | Claude app or claude.ai/code | Telegram (iOS/Android/Desktop/Web) |
+| **Network** | Direct to Anthropic only | Proxy support, works behind firewalls |
+| **Shell fallback** | No | Auto shell mode when Claude not running |
+
+## Quick Start
+
+### Prerequisites
+
+```bash
+# macOS
+brew install tmux cloudflared jq python3
+```
+
+### 1. Get a Telegram Bot Token
+
+Message [@BotFather](https://t.me/BotFather) → `/newbot` → save the token.
+
+### 2. Clone & Install
+
+```bash
+git clone https://github.com/zihenghe04/teleclaude
+cd teleclaude
+python3 -m venv .venv && source .venv/bin/activate
+```
+
+### 3. Start
+
+```bash
+export TELEGRAM_BOT_TOKEN="your_token_here"
+./run.sh start
+```
+
+This single command will:
+- Install Claude Code hooks automatically
+- Create a tmux session
+- Start the bridge server
+- Open a Cloudflare Tunnel
+- Set the Telegram webhook
+
+### 4. Launch Claude in tmux
+
+```bash
+tmux attach -t claude
+claude --dangerously-skip-permissions
+```
+
+Now send a message to your bot on Telegram.
+
+## Bot Commands
+
+| Command | Description |
+| --- | --- |
+| `/status` | Check tmux session status |
+| `/stop` | Interrupt Claude (send Escape) |
+| `/clear` | Clear Claude conversation |
+| `/continue_` | Continue most recent session |
+| `/resume` | Pick session to resume (inline keyboard) |
+| `/loop <prompt>` | Start Ralph Loop (5 iterations) |
+
+Other `/commands` (like `/model`, `/cost`, `/config`) are forwarded to Claude Code as internal commands.
+
+Regular text messages are sent as prompts. When Claude is not running, messages execute as shell commands.
 
 ## Architecture
 
@@ -49,160 +103,21 @@ Telegram ──webhook──> Cloudflare Tunnel ──> Bridge (bridge.py :8080)
                             └─────────────────────────────────┘
 ```
 
-**Handler**: receives Telegram webhooks, injects messages into tmux via `send-keys`.
-
-**PaneWatcher** (background thread):
-
-1. Reads Claude Code transcript JSONL for live streaming (tool calls, text)
-2. Reads hook response file for final formatted HTML response
-3. Monitors tmux pane for interactive prompts (selection menus, y/n)
-4. Detects when Claude is not running and cleans up stale state
-
-**Hooks** (Claude Code side):
-
-- `PostToolUse` → saves transcript path so watcher follows the correct session
-- `Stop` → extracts response text, converts Markdown to HTML, writes to response file
-
-## Prerequisites
-
-- Python 3.10+
-- tmux
-- cloudflared (Cloudflare Tunnel)
-- jq (for hooks)
-
-```bash
-# macOS
-brew install tmux cloudflared jq
-```
-
-## Install
-
-```bash
-git clone https://github.com/zihenghe04/teleclaude
-cd teleclaude
-python3 -m venv .venv && source .venv/bin/activate
-```
-
-## Setup
-
-### 1. Create Telegram Bot
-
-Message [@BotFather](https://t.me/BotFather) on Telegram, create a bot, and save the token.
-
-### 2. Install Claude Code Hooks
-
-```bash
-cp hooks/send-to-telegram.sh ~/.claude/hooks/
-cp hooks/save-transcript-path.sh ~/.claude/hooks/
-chmod +x ~/.claude/hooks/*.sh
-```
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/save-transcript-path.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/send-to-telegram.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### 3. Start tmux Session
-
-```bash
-tmux new -s claude
-claude --dangerously-skip-permissions
-```
-
-### 4. Run
-
-Use the one-click script:
-
-```bash
-# Edit run.sh first — set BOT_TOKEN
-./run.sh start
-```
-
-Or manually:
-
-```bash
-export TELEGRAM_BOT_TOKEN="your_token"
-python bridge.py &
-
-# Expose via Cloudflare Tunnel
-cloudflared tunnel --url http://localhost:8080
-
-# Set webhook (replace URL)
-curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook?url=https://YOUR-TUNNEL.trycloudflare.com"
-```
-
-## Bot Commands
-
-
-| Command          | Description                              |
-| ---------------- | ---------------------------------------- |
-| `/status`        | Check tmux session status                |
-| `/stop`          | Interrupt Claude (send Escape)           |
-| `/clear`         | Clear Claude conversation                |
-| `/continue_`     | Continue most recent session             |
-| `/resume`        | Pick session to resume (inline keyboard) |
-| `/loop <prompt>` | Start Ralph Loop (5 iterations)          |
-
-
-Any other `/command` (like `/model`, `/cost`, `/config`) is forwarded to Claude Code as an internal command.
-
-Regular text messages are sent to Claude Code as prompts. When Claude is not running in the tmux session, messages are executed as shell commands with output returned.
-
-## Features
-
-### Live Streaming
-
-During Claude's response, the bot sends live updates showing tool calls and intermediate text, updated every 3 seconds via transcript JSONL reading.
-
-### Interactive Prompts
-
-When Claude shows selection menus or yes/no prompts, they're forwarded to Telegram with inline keyboard buttons for easy interaction.
-
-### Final Formatted Response
-
-When Claude finishes, the Stop hook converts the Markdown response to Telegram HTML (bold, italic, code blocks, inline code) and replaces the live message.
-
-### Shell Fallback
-
-When Claude is not running in the tmux session, messages are sent to the shell and output is captured and returned.
+- **Handler**: receives Telegram webhooks, injects messages into tmux via `send-keys`
+- **PaneWatcher**: reads transcript JSONL for streaming, monitors for interactive prompts, detects Claude running state
+- **Hooks**: `PostToolUse` saves transcript path; `Stop` converts response to HTML and writes to file
 
 ## Environment Variables
 
+| Variable | Default | Description |
+| --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | *(required)* | Bot token from BotFather |
+| `TMUX_SESSION` | `claude` | tmux session name |
+| `PORT` | `8080` | Bridge HTTP port |
+| `TELEGRAM_PROXY` | `http://127.0.0.1:7897` | Proxy for Telegram API |
 
-| Variable             | Default                 | Description                              |
-| -------------------- | ----------------------- | ---------------------------------------- |
-| `TELEGRAM_BOT_TOKEN` | *(required)*            | Bot token from BotFather                 |
-| `TMUX_SESSION`       | `claude`                | tmux session name                        |
-| `PORT`               | `8080`                  | Bridge HTTP port                         |
-| `TELEGRAM_PROXY`     | `http://127.0.0.1:7897` | Proxy for Telegram API (useful in China) |
+### Proxy
 
+Default proxy `127.0.0.1:7897` is for environments where Telegram API is blocked (e.g. China). Change `TELEGRAM_PROXY` or edit `bridge.py` to remove.
 
-## Proxy Note
-
-The default proxy (`127.0.0.1:7897`) is configured for environments where Telegram API is not directly accessible (e.g., China mainland). Set `TELEGRAM_PROXY` to your proxy, or modify `bridge.py` to remove proxy if not needed.
-
-Cloudflare Tunnel (`cloudflared`) uses QUIC protocol which may conflict with HTTP proxies. The `run.sh` script starts it with `no_proxy="*"` to bypass proxy settings.
+Cloudflare Tunnel uses QUIC which may conflict with HTTP proxies. `run.sh` starts it with `no_proxy="*"` to bypass.

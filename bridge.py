@@ -1,3 +1,4 @@
+# 2026-02-28
 #!/usr/bin/env python3
 """Claude Code <-> Telegram Bridge"""
 
@@ -130,6 +131,68 @@ def get_session_id(project_path):
     return None
 
 
+def _tool_summary(name, inp):
+    """Extract a readable summary for a tool_use block."""
+    def short_path(p):
+        """Shorten absolute path to basename or last 2 components."""
+        if not p:
+            return ""
+        parts = p.replace("\\", "/").split("/")
+        return "/".join(parts[-2:]) if len(parts) > 2 else p
+
+    def code_preview(content, max_lines=8):
+        """Return first N non-empty lines as a code block preview."""
+        if not content:
+            return ""
+        lines = [l for l in content.split("\n") if l.strip()][:max_lines]
+        total = content.count("\n") + 1
+        preview = "\n".join(lines)
+        suffix = f"\n... ({total} lines total)" if total > max_lines else ""
+        return f"\n```\n{preview}{suffix}\n```"
+
+    if name in ("Read", "Write", "Edit"):
+        fp = short_path(inp.get("file_path", ""))
+        if name == "Write":
+            content = inp.get("content", "")
+            return f"📝 Write → {fp}{code_preview(content)}"
+        elif name == "Edit":
+            old = inp.get("old_string", "")
+            new = inp.get("new_string", "")
+            old_preview = old.strip().split("\n")[:3]
+            new_preview = new.strip().split("\n")[:3]
+            parts = [f"✏️ Edit → {fp}"]
+            parts.append("- " + "\n  ".join(old_preview))
+            parts.append("+ " + "\n  ".join(new_preview))
+            return "\n".join(parts)
+        else:
+            return f"📖 Read → {fp}"
+    elif name == "Bash":
+        cmd = inp.get("command", "")
+        if len(cmd) > 120:
+            cmd = cmd[:117] + "..."
+        return f"⚡ Bash → `{cmd}`"
+    elif name in ("Grep", "Glob"):
+        pat = inp.get("pattern", "")
+        path = short_path(inp.get("path", ""))
+        return f"🔍 {name} → `{pat}`" + (f" in {path}" if path else "")
+    elif name == "WebFetch":
+        url = inp.get("url", "")
+        return f"🌐 Fetch → {url[:80]}"
+    elif name == "WebSearch":
+        q = inp.get("query", "")
+        return f"🔎 Search → {q}"
+    elif name == "Task":
+        desc = inp.get("description", "")
+        return f"🤖 Task → {desc}"
+    else:
+        hint = ""
+        for v in inp.values():
+            if isinstance(v, str) and v.strip():
+                hint = v[:60].replace("\n", " ")
+                break
+        return f"🔧 {name}" + (f" → {hint}" if hint else "")
+
+
 class PaneWatcher(threading.Thread):
     """Monitors Claude's transcript for live updates and tmux for interactive prompts."""
     daemon = True
@@ -206,8 +269,11 @@ class PaneWatcher(threading.Thread):
     def _find_transcript(self):
         """Find the tmux claude session's transcript via hint file from hooks."""
         now = time.time()
+        # When PENDING_FILE is active (awaiting response), bypass cache to
+        # detect transcript path changes quickly (e.g. new conversation).
+        cache_ttl = 2 if os.path.exists(PENDING_FILE) else 10
         if (self._transcript_path
-                and now - self._last_scan < 10
+                and now - self._last_scan < cache_ttl
                 and os.path.exists(self._transcript_path)):
             return self._transcript_path
         self._last_scan = now
@@ -231,10 +297,16 @@ class PaneWatcher(threading.Thread):
             return False
         if path != self._transcript_path:
             self._transcript_path = path
-            try:
-                self._transcript_pos = os.path.getsize(path)
-            except OSError:
+            if self._pending_mtime > 0:
+                # In a response cycle — read from beginning so the user-message
+                # reset logic finds the latest human entry and we stream the reply.
                 self._transcript_pos = 0
+            else:
+                # Initial startup — skip to end (don't replay old history)
+                try:
+                    self._transcript_pos = os.path.getsize(path)
+                except OSError:
+                    self._transcript_pos = 0
             self._response_parts = []
             self.live_msg_id = None
             self.last_live_text = ""
@@ -283,7 +355,9 @@ class PaneWatcher(threading.Thread):
                                 grew = True
                             elif btype == "tool_use":
                                 name = block.get("name", "tool")
-                                self._response_parts.append(("tool", name))
+                                inp = block.get("input", {})
+                                detail = _tool_summary(name, inp)
+                                self._response_parts.append(("tool", detail))
                                 grew = True
                 self._transcript_pos = f.tell()
         except (OSError, IOError):
@@ -295,21 +369,26 @@ class PaneWatcher(threading.Thread):
     def _format_response(self):
         """Format accumulated response parts for display."""
         lines = []
-        pending_tools = []
         for ptype, text in self._response_parts:
             if ptype == "text":
-                if pending_tools:
-                    lines.append(" → ".join(f"[{t}]" for t in pending_tools))
-                    pending_tools = []
                 lines.append(text)
             elif ptype == "tool":
-                pending_tools.append(text)
-        if pending_tools:
-            lines.append(" → ".join(f"[{t}]" for t in pending_tools))
-        result = "\n\n".join(lines)
+                lines.append(text)
+        result = "\n".join(lines)
         if len(result) > 4000:
             result = result[-4000:]
         return result
+
+    def _format_tool_log(self):
+        """Format only the tool entries as a compact process log."""
+        lines = []
+        for ptype, text in self._response_parts:
+            if ptype == "tool":
+                lines.append(text)
+        return "\n".join(lines) if lines else ""
+
+    def _has_tool_calls(self):
+        return any(ptype == "tool" for ptype, _ in self._response_parts)
 
     # ── Hook response handling ────────────────────────────────────────
 
@@ -324,7 +403,7 @@ class PaneWatcher(threading.Thread):
             return None
 
     def _finalize_with_hook(self, data, now):
-        """Edit live message (or send new) with hook's formatted HTML response."""
+        """Send hook's formatted HTML response. Keep live message as tool log if applicable."""
         chat_id = self._chat_id()
         if not chat_id:
             return
@@ -333,30 +412,19 @@ class PaneWatcher(threading.Thread):
         if not html and not text:
             return
 
-        result_msg_id = None
+        had_tools = self._has_tool_calls()
 
-        if self.live_msg_id:
-            # Edit existing live message with formatted response
-            if html:
-                r = telegram_api("editMessageText", {
+        # If live message exists and had tool calls, edit it to a compact tool log
+        if self.live_msg_id and had_tools:
+            tool_log = self._format_tool_log()
+            if tool_log:
+                telegram_api("editMessageText", {
                     "chat_id": chat_id,
                     "message_id": self.live_msg_id,
-                    "text": html,
-                    "parse_mode": "HTML",
+                    "text": "📋 Process:\n" + tool_log,
                 })
-                if r and r.get("ok"):
-                    result_msg_id = self.live_msg_id
-            if not result_msg_id:
-                r = telegram_api("editMessageText", {
-                    "chat_id": chat_id,
-                    "message_id": self.live_msg_id,
-                    "text": text,
-                })
-                if r and r.get("ok"):
-                    result_msg_id = self.live_msg_id
-
-        if not result_msg_id:
-            # No live message to edit — send new
+            # Send final response as a NEW message
+            result_msg_id = None
             if html:
                 r = telegram_api("sendMessage", {
                     "chat_id": chat_id,
@@ -368,10 +436,48 @@ class PaneWatcher(threading.Thread):
             if not result_msg_id:
                 r = telegram_api("sendMessage", {
                     "chat_id": chat_id,
-                    "text": text,
+                    "text": text or html,
                 })
                 if r and r.get("ok"):
                     result_msg_id = r["result"]["message_id"]
+        else:
+            # No tool calls — edit live message in place (or send new)
+            result_msg_id = None
+            if self.live_msg_id:
+                if html:
+                    r = telegram_api("editMessageText", {
+                        "chat_id": chat_id,
+                        "message_id": self.live_msg_id,
+                        "text": html,
+                        "parse_mode": "HTML",
+                    })
+                    if r and r.get("ok"):
+                        result_msg_id = self.live_msg_id
+                if not result_msg_id:
+                    r = telegram_api("editMessageText", {
+                        "chat_id": chat_id,
+                        "message_id": self.live_msg_id,
+                        "text": text or html,
+                    })
+                    if r and r.get("ok"):
+                        result_msg_id = self.live_msg_id
+
+            if not result_msg_id:
+                if html:
+                    r = telegram_api("sendMessage", {
+                        "chat_id": chat_id,
+                        "text": html,
+                        "parse_mode": "HTML",
+                    })
+                    if r and r.get("ok"):
+                        result_msg_id = r["result"]["message_id"]
+                if not result_msg_id:
+                    r = telegram_api("sendMessage", {
+                        "chat_id": chat_id,
+                        "text": text or html,
+                    })
+                    if r and r.get("ok"):
+                        result_msg_id = r["result"]["message_id"]
 
         self.hook_msg_id = result_msg_id
         self.live_msg_id = None

@@ -23,7 +23,45 @@ start() {
 
     if [ "$BOT_TOKEN" = "YOUR_BOT_TOKEN_HERE" ]; then
         log_err "Set TELEGRAM_BOT_TOKEN first"
+        echo "  export TELEGRAM_BOT_TOKEN=\"your_token\""
+        echo "  ./run.sh start"
         exit 1
+    fi
+
+    # 0. Install hooks (auto, idempotent)
+    mkdir -p ~/.claude/hooks
+    HOOKS_CHANGED=0
+    for hook in send-to-telegram.sh save-transcript-path.sh; do
+        src="$PROJECT_DIR/hooks/$hook"
+        dst="$HOME/.claude/hooks/$hook"
+        if [ ! -f "$dst" ] || ! diff -q "$src" "$dst" > /dev/null 2>&1; then
+            cp "$src" "$dst"
+            chmod +x "$dst"
+            HOOKS_CHANGED=1
+        fi
+    done
+
+    # Ensure hooks are registered in settings.json
+    SETTINGS="$HOME/.claude/settings.json"
+    if [ ! -f "$SETTINGS" ] || ! grep -q "save-transcript-path" "$SETTINGS" 2>/dev/null; then
+        python3 -c "
+import json, os
+path = os.path.expanduser('~/.claude/settings.json')
+try:
+    with open(path) as f: cfg = json.load(f)
+except: cfg = {}
+cfg.setdefault('hooks', {})
+cfg['hooks']['PostToolUse'] = [{'hooks': [{'type': 'command', 'command': '~/.claude/hooks/save-transcript-path.sh'}]}]
+cfg['hooks']['Stop'] = [{'hooks': [{'type': 'command', 'command': '~/.claude/hooks/send-to-telegram.sh'}]}]
+with open(path, 'w') as f: json.dump(cfg, f, indent=2)
+"
+        HOOKS_CHANGED=1
+    fi
+
+    if [ "$HOOKS_CHANGED" = "1" ]; then
+        log_ok "Hooks installed"
+    else
+        log_ok "Hooks up to date"
     fi
 
     # 1. tmux session
