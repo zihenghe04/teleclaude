@@ -10,6 +10,12 @@ Control [Claude Code](https://docs.anthropic.com/en/docs/claude-code) remotely f
 - **Shell fallback** — when Claude is not running, commands execute in shell with output returned
 - **Claude internal commands** — `/model`, `/cost` etc. forwarded with TUI output captured
 
+## Demo
+
+https://github.com/user-attachments/assets/demo/live.mp4
+
+<video src="demo/live.mp4" width="100%" controls></video>
+
 ## vs. Official Remote Control
 
 | Feature | Official Remote Control | teleclaude |

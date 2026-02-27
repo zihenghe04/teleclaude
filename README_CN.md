@@ -10,6 +10,10 @@
 - **Shell 回退** — Claude 未运行时，命令直接在 shell 中执行并返回结果
 - **Claude 内部命令** — `/model`、`/cost` 等命令直接通过 Telegram 发送
 
+## 演示
+
+<video src="demo/live.mp4" width="100%" controls></video>
+
 ## 对比官方 Remote Control
 
 | 特性 | 官方 Remote Control | teleclaude |
