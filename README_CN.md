@@ -12,7 +12,7 @@
 
 ## 演示
 
-<video src="demo/live.mp4" width="100%" controls></video>
+![demo](demo/live.gif)
 
 ## 对比官方 Remote Control
 

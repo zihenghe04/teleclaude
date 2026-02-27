@@ -12,9 +12,7 @@ Control [Claude Code](https://docs.anthropic.com/en/docs/claude-code) remotely f
 
 ## Demo
 
-https://github.com/user-attachments/assets/demo/live.mp4
-
-<video src="demo/live.mp4" width="100%" controls></video>
+![demo](demo/live.gif)
 
 ## vs. Official Remote Control
 
