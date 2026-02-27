@@ -1,5 +1,9 @@
 # teleclaude
 
+<p align="center">
+  <img src="demo/banner.jpg" width="600" alt="teleclaude banner">
+</p>
+
 **English** | [中文](README_CN.md)
 
 Control [Claude Code](https://docs.anthropic.com/en/docs/claude-code) remotely from Telegram — live streaming, interactive prompts, and autonomous execution.

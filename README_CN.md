@@ -1,5 +1,9 @@
 # teleclaude
 
+<p align="center">
+  <img src="demo/banner.jpg" width="600" alt="teleclaude banner">
+</p>
+
 [English](README.md) | **中文**
 
 通过 Telegram 远程控制 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — 实时流式输出、交互式提示转发、自主执行。
