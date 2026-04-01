@@ -129,3 +129,9 @@ Telegram ──webhook──> Cloudflare Tunnel ──> Bridge (bridge.py :8080)
 Default proxy `127.0.0.1:7897` is for environments where Telegram API is blocked (e.g. China). Change `TELEGRAM_PROXY` or edit `bridge.py` to remove.
 
 Cloudflare Tunnel uses QUIC which may conflict with HTTP proxies. `run.sh` starts it with `no_proxy="*"` to bypass.
+
+## 📰 AI 推特日报 (AI Twitter Daily)
+
+| 日期 | 链接 |
+| --- | --- |
+| 2026-04-01 | [AI 推特日报 · 2026-04-01](daily/2026-04-01.md) |
