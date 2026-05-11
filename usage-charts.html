@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>近一月用量可视化 · teleclaude</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0f1419;
+    color: #e7e9ea;
+  }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .subtitle { color: #8b98a5; font-size: 14px; margin-bottom: 24px; }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: #1a2026;
+    border: 1px solid #2f3a44;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card .label { color: #8b98a5; font-size: 12px; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .chart-wrap {
+    background: #1a2026;
+    border: 1px solid #2f3a44;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .chart-wrap h2 {
+    font-size: 16px;
+    margin: 0 0 12px;
+    color: #e7e9ea;
+  }
+  #heatmap { width: 100%; height: 260px; }
+  #line { width: 100%; height: 420px; }
+  #lang-line { width: 100%; height: 320px; }
+  .footer {
+    text-align: center;
+    color: #8b98a5;
+    font-size: 12px;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+  <h1>📊 近一月用量可视化</h1>
+  <div class="subtitle">数据范围：2026-04-01 ~ 2026-05-11 · 共 23 天</div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="chart-wrap">
+    <h2>🔥 日历热力图 — 每日互动总量 (likes + retweets + comments)</h2>
+    <div id="heatmap"></div>
+  </div>
+
+  <div class="chart-wrap">
+    <h2>📈 互动趋势 — 点赞 / 转发 / 评论</h2>
+    <div id="line"></div>
+  </div>
+
+  <div class="chart-wrap">
+    <h2>🌐 语言分布趋势 — 英文 vs 中文贴文数</h2>
+    <div id="lang-line"></div>
+  </div>
+
+  <div class="footer">teleclaude · usage charts · 基于 daily/ 目录下的每日报告生成</div>
+
+<script>
+const data = [{"date": "2026-04-01", "posts": 16, "en": 9, "zh": 7, "likes": 0, "retweets": 0, "comments": 0}, {"date": "2026-04-02", "posts": 15, "en": 9, "zh": 6, "likes": 197000, "retweets": 58000, "comments": 33500}, {"date": "2026-04-03", "posts": 15, "en": 9, "zh": 6, "likes": 293000, "retweets": 91500, "comments": 61300}, {"date": "2026-04-04", "posts": 15, "en": 9, "zh": 6, "likes": 266000, "retweets": 74900, "comments": 42400}, {"date": "2026-04-05", "posts": 15, "en": 9, "zh": 6, "likes": 114400, "retweets": 40780, "comments": 21020}, {"date": "2026-04-06", "posts": 15, "en": 10, "zh": 5, "likes": 227800, "retweets": 64390, "comments": 26430}, {"date": "2026-04-07", "posts": 15, "en": 10, "zh": 5, "likes": 201600, "retweets": 53300, "comments": 24940}, {"date": "2026-04-08", "posts": 15, "en": 10, "zh": 5, "likes": 302200, "retweets": 87800, "comments": 43280}, {"date": "2026-04-09", "posts": 15, "en": 10, "zh": 5, "likes": 335500, "retweets": 113000, "comments": 55200}, {"date": "2026-04-10", "posts": 15, "en": 10, "zh": 5, "likes": 476100, "retweets": 153400, "comments": 78900}, {"date": "2026-04-20", "posts": 15, "en": 10, "zh": 5, "likes": 177800, "retweets": 56000, "comments": 33140}, {"date": "2026-04-24", "posts": 15, "en": 9, "zh": 6, "likes": 191300, "retweets": 61500, "comments": 30320}, {"date": "2026-04-28", "posts": 15, "en": 9, "zh": 6, "likes": 205100, "retweets": 70400, "comments": 35700}, {"date": "2026-05-02", "posts": 15, "en": 9, "zh": 6, "likes": 222300, "retweets": 84500, "comments": 40600}, {"date": "2026-05-03", "posts": 15, "en": 9, "zh": 6, "likes": 392800, "retweets": 159600, "comments": 72690}, {"date": "2026-05-04", "posts": 15, "en": 9, "zh": 6, "likes": 310800, "retweets": 138400, "comments": 61900}, {"date": "2026-05-05", "posts": 15, "en": 9, "zh": 6, "likes": 519200, "retweets": 236700, "comments": 107300}, {"date": "2026-05-06", "posts": 15, "en": 9, "zh": 6, "likes": 550800, "retweets": 254500, "comments": 119300}, {"date": "2026-05-07", "posts": 15, "en": 9, "zh": 6, "likes": 543100, "retweets": 254700, "comments": 126800}, {"date": "2026-05-08", "posts": 15, "en": 9, "zh": 6, "likes": 602400, "retweets": 265600, "comments": 139500}, {"date": "2026-05-09", "posts": 15, "en": 9, "zh": 6, "likes": 783800, "retweets": 353200, "comments": 181800}, {"date": "2026-05-10", "posts": 15, "en": 9, "zh": 6, "likes": 946900, "retweets": 410400, "comments": 242300}, {"date": "2026-05-11", "posts": 15, "en": 9, "zh": 6, "likes": 970200, "retweets": 426200, "comments": 242800}];
+
+// Summary stats
+const totalPosts = data.reduce((s, d) => s + d.posts, 0);
+const totalLikes = data.reduce((s, d) => s + d.likes, 0);
+const totalRetweets = data.reduce((s, d) => s + d.retweets, 0);
+const totalComments = data.reduce((s, d) => s + d.comments, 0);
+const fmt = (n) => n >= 1e6 ? (n/1e6).toFixed(2)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);
+const summary = [
+  ["总贴文数", totalPosts],
+  ["总点赞", fmt(totalLikes)],
+  ["总转发", fmt(totalRetweets)],
+  ["总评论", fmt(totalComments)],
+  ["日均互动", fmt(Math.round((totalLikes + totalRetweets + totalComments) / data.filter(d => d.likes>0).length))],
+];
+document.getElementById("summary").innerHTML = summary.map(([k, v]) =>
+  `<div class="card"><div class="label">${k}</div><div class="value">${v}</div></div>`
+).join("");
+
+// ---------- Calendar heatmap ----------
+const heatmapData = data.map(d => [d.date, d.likes + d.retweets + d.comments]);
+const maxVal = Math.max(...heatmapData.map(x => x[1]));
+
+const heatmapChart = echarts.init(document.getElementById("heatmap"), "dark");
+heatmapChart.setOption({
+  backgroundColor: "transparent",
+  tooltip: {
+    formatter: (p) => {
+      const d = data.find(x => x.date === p.value[0]);
+      if (!d) return "";
+      return `<b>${d.date}</b><br/>
+        贴文：${d.posts} 条 (英${d.en}/中${d.zh})<br/>
+        ❤️ ${fmt(d.likes)} · 🔁 ${fmt(d.retweets)} · 💬 ${fmt(d.comments)}<br/>
+        合计互动：${fmt(p.value[1])}`;
+    },
+  },
+  visualMap: {
+    min: 0,
+    max: maxVal,
+    calculable: true,
+    orient: "horizontal",
+    left: "center",
+    bottom: 10,
+    textStyle: { color: "#8b98a5" },
+    inRange: { color: ["#1a2026", "#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"] },
+  },
+  calendar: [
+    {
+      range: ["2026-04-01", "2026-04-30"],
+      top: 30, left: 40, right: 40, cellSize: ["auto", 24],
+      orient: "horizontal",
+      splitLine: { lineStyle: { color: "#2f3a44" } },
+      itemStyle: { color: "#0f1419", borderColor: "#2f3a44" },
+      yearLabel: { show: false },
+      monthLabel: { color: "#e7e9ea", nameMap: { 4: "4月" } },
+      dayLabel: { color: "#8b98a5", nameMap: ["日","一","二","三","四","五","六"] },
+    },
+    {
+      range: ["2026-05-01", "2026-05-15"],
+      top: 150, left: 40, right: 40, cellSize: ["auto", 24],
+      orient: "horizontal",
+      splitLine: { lineStyle: { color: "#2f3a44" } },
+      itemStyle: { color: "#0f1419", borderColor: "#2f3a44" },
+      yearLabel: { show: false },
+      monthLabel: { color: "#e7e9ea", nameMap: { 5: "5月" } },
+      dayLabel: { color: "#8b98a5", nameMap: ["日","一","二","三","四","五","六"] },
+    },
+  ],
+  series: [
+    { type: "heatmap", coordinateSystem: "calendar", calendarIndex: 0, data: heatmapData },
+    { type: "heatmap", coordinateSystem: "calendar", calendarIndex: 1, data: heatmapData },
+  ],
+});
+
+// ---------- Engagement line chart ----------
+const dates = data.map(d => d.date);
+const lineChart = echarts.init(document.getElementById("line"), "dark");
+lineChart.setOption({
+  backgroundColor: "transparent",
+  tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+  legend: { data: ["点赞 ❤️", "转发 🔁", "评论 💬"], textStyle: { color: "#e7e9ea" }, top: 0 },
+  grid: { left: 60, right: 30, top: 50, bottom: 60 },
+  xAxis: {
+    type: "category", data: dates,
+    axisLabel: { color: "#8b98a5", rotate: 45 },
+    axisLine: { lineStyle: { color: "#2f3a44" } },
+  },
+  yAxis: {
+    type: "value",
+    axisLabel: { color: "#8b98a5", formatter: (v) => fmt(v) },
+    splitLine: { lineStyle: { color: "#2f3a44" } },
+  },
+  dataZoom: [
+    { type: "inside" },
+    { type: "slider", height: 20, bottom: 15, textStyle: { color: "#8b98a5" } },
+  ],
+  series: [
+    {
+      name: "点赞 ❤️", type: "line", smooth: true,
+      data: data.map(d => d.likes),
+      itemStyle: { color: "#e76f51" },
+      areaStyle: { color: "rgba(231,111,81,0.15)" },
+      symbol: "circle", symbolSize: 6,
+    },
+    {
+      name: "转发 🔁", type: "line", smooth: true,
+      data: data.map(d => d.retweets),
+      itemStyle: { color: "#2a9d8f" },
+      areaStyle: { color: "rgba(42,157,143,0.12)" },
+      symbol: "circle", symbolSize: 6,
+    },
+    {
+      name: "评论 💬", type: "line", smooth: true,
+      data: data.map(d => d.comments),
+      itemStyle: { color: "#e9c46a" },
+      areaStyle: { color: "rgba(233,196,106,0.12)" },
+      symbol: "circle", symbolSize: 6,
+    },
+  ],
+});
+
+// ---------- Language distribution line chart ----------
+const langChart = echarts.init(document.getElementById("lang-line"), "dark");
+langChart.setOption({
+  backgroundColor: "transparent",
+  tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+  legend: { data: ["英文", "中文", "总贴文"], textStyle: { color: "#e7e9ea" }, top: 0 },
+  grid: { left: 50, right: 30, top: 50, bottom: 60 },
+  xAxis: {
+    type: "category", data: dates,
+    axisLabel: { color: "#8b98a5", rotate: 45 },
+    axisLine: { lineStyle: { color: "#2f3a44" } },
+  },
+  yAxis: {
+    type: "value", min: 0,
+    axisLabel: { color: "#8b98a5" },
+    splitLine: { lineStyle: { color: "#2f3a44" } },
+  },
+  dataZoom: [
+    { type: "inside" },
+    { type: "slider", height: 20, bottom: 15, textStyle: { color: "#8b98a5" } },
+  ],
+  series: [
+    {
+      name: "英文", type: "line", smooth: true, stack: "lang",
+      data: data.map(d => d.en),
+      itemStyle: { color: "#4a90e2" },
+      areaStyle: { color: "rgba(74,144,226,0.35)" },
+    },
+    {
+      name: "中文", type: "line", smooth: true, stack: "lang",
+      data: data.map(d => d.zh),
+      itemStyle: { color: "#e94e77" },
+      areaStyle: { color: "rgba(233,78,119,0.35)" },
+    },
+    {
+      name: "总贴文", type: "line", smooth: true,
+      data: data.map(d => d.posts),
+      itemStyle: { color: "#f4a261" },
+      lineStyle: { width: 2, type: "dashed" },
+      symbol: "diamond", symbolSize: 8,
+    },
+  ],
+});
+
+window.addEventListener("resize", () => {
+  heatmapChart.resize();
+  lineChart.resize();
+  langChart.resize();
+});
+</script>
+</body>
+</html>
