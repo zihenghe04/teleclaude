@@ -162,3 +162,4 @@ Cloudflare Tunnel uses QUIC which may conflict with HTTP proxies. `run.sh` start
 | 2026-05-14 | [AI 推特日报 · 2026-05-14](daily/2026-05-14.md) |
 | 2026-05-16 | [AI 推特日报 · 2026-05-16](daily/2026-05-16.md) |
 | 2026-05-17 | [AI 推特日报 · 2026-05-17](daily/2026-05-17.md) |
+| 2026-05-18 | [AI 推特日报 · 2026-05-18](daily/2026-05-18.md) |
