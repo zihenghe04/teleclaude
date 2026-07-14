@@ -1,0 +1,56 @@
+{
+  "notes": [
+    {
+      "slug": "getting-started",
+      "title": "Getting Started - How to Use This Site",
+      "description": "A guide on how to add new notes, manage categories, and deploy your personal knowledge base.",
+      "category": "guide",
+      "tags": ["tutorial", "setup"],
+      "date": "2026-04-16",
+      "file": "getting-started.md"
+    },
+    {
+      "slug": "python-tips",
+      "title": "Python Development Tips",
+      "description": "Practical Python tips and patterns collected from daily development: comprehensions, context managers, decorators, and more.",
+      "category": "tech",
+      "tags": ["python", "best-practices"],
+      "date": "2026-04-15",
+      "file": "python-tips.md"
+    },
+    {
+      "slug": "ai-resources",
+      "title": "AI / LLM Learning Resources",
+      "description": "Curated collection of resources for learning about large language models, prompt engineering, and AI development.",
+      "category": "resource",
+      "tags": ["AI", "LLM", "learning"],
+      "date": "2026-04-14",
+      "file": "ai-resources.md"
+    },
+    {
+      "slug": "git-workflow",
+      "title": "Git Workflow Cheat Sheet",
+      "description": "Common Git operations, branching strategies, and useful commands for everyday development.",
+      "category": "tech",
+      "tags": ["git", "workflow", "cheatsheet"],
+      "date": "2026-04-13",
+      "file": "git-workflow.md"
+    },
+    {
+      "slug": "on-learning",
+      "title": "On Learning: Build to Understand",
+      "description": "Reflections on why building things is the best way to learn, and how to design a personal learning system.",
+      "category": "thoughts",
+      "tags": ["learning", "reflection"],
+      "date": "2026-04-12",
+      "file": "on-learning.md"
+    }
+  ],
+  "categories": [
+    { "id": "tech", "name": "Tech", "icon": "💻" },
+    { "id": "guide", "name": "Guide", "icon": "📖" },
+    { "id": "resource", "name": "Resources", "icon": "📚" },
+    { "id": "thoughts", "name": "Thoughts", "icon": "💡" },
+    { "id": "project", "name": "Projects", "icon": "🚀" }
+  ]
+}
